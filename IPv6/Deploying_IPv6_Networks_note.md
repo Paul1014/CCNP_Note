@@ -1,4 +1,7 @@
-# IPv6 Deployment
+---
+tags: CCNP EXAM
+---
+# IPv6 
 
 ## IPv6 Refresher
 
@@ -399,4 +402,127 @@ CPE: Customer premises equipment
 
 #### Access over Tunnel
 
+IPv6 over IPv4 tunnels 可以被用在各種類型網路，有以下原因會使用到他們:
+* 快速又不花費的方法提供IPv6連線
+* 提供跨越網路(中間非能管控到)傳送IPv6 traffic解決方法
+* 在IPv6不支援等因素無法部屬的環境內，使其可以傳輸
+
+##### Manaulaay Configured Tunnel
+MCT 是第一個被發展出來的傳輸機制
+MCT 是靜態設定提供point-to-point tunnel
 ![](https://i.imgur.com/TYDf473.png)
+
+在Cisco IOS中，tunnel interface會自動關閉RA功能，若要重啟動輸入以下指令:
+```
+no ipv6 nd suppress-ra
+```
+
+##### Tunnel Broker and Tunnel Server
+
+Tunnel Broker可以使在host上tunnel自動設定，使得各容易擴充
+Tunnel server是Tunell Broker額外的功能，兩者都是提供擴充MCT的解決方法
+
+###### Teredo
+
+Teredo 是用來解決NAT導致IPv6 over IPv4 tunneling的問題，端點不需要Public IPv4位址即可穿隧。
+It provides address assignment and hostto-host, automatic tunneling for unicast IPv6 connectivity when hosts are located behind IPv4 NAT(s)
+使用IPv4 UDP port 3544
+
+Teredo對provider不是常用的解決方法，且會喪失IPv6的特性
+
+
+###### ISATAP
+The Intra-Site Automatic Tunnel Addressing Protocol (ISATAP) specified in RFC 4214
+ISATAP encapsulates IPv6 in IPv4 using ip-protocol 41
+
+ISATAP format inteface ID:
+first 32 bits: 0000:5EFE
+```
+IPv4 Address 200.15.15.1
+IPv4 Address in hexadecimal format C80F:0F01
+ISATAP-format Interface ID 0000:5EFE:C80F:0F01
+```
+
+![](https://i.imgur.com/mUQY8H5.png)
+
+### IPv6 over the Backbone
+
+Backbone network is single IPS infrastructure.
+有以下方法在backbone上部屬IPv6:
+* Daul-stack routers and links
+* IPv6(adn IPv4) use a separate link layer
+一些backbones使用layer 2技術(Frame Relay, ATM等)在edge router傳送IPv4流量。
+為了建立IPv6連線，ISP router同樣可使用Layer 2架構，但需要與IPv4分隔出來
+* IPv6 on the edges, and tunnels to traverse the backbone
+
+#### IPv6 over IPv4 Tunnels
+
+* IPv6 over GRE
+![](https://i.imgur.com/EAtEIM4.png)
+MCT一種，GRE是點對點的tunnel 技術，也因此難以擴充
+* 6to4
+6to4是一種automatic tunneling機制，RFC3056
+![](https://i.imgur.com/XaaPdau.png)
+
+
+### Translation Mechanisms(NAT-PT)
+
+NAT-PT enables IPv6-only to communicate with IPv4-only
+
+Header Translation IPv4 to IPv6:
+
+| IPv6 Header Fields | Values                     |
+|:------------------ | -------------------------- |
+| Version            | 6                          |
+| Traffic Class      | TOS                        |
+| Flow Label         | 0                          |
+| Payload Length     | Total length—header length |
+| Next Header        | Protocol                   |
+| Hop Limit          | TTL                        |
+| Src address        | NAT-PT                     |
+| Dst address        | NAT-PT                     |
+
+IPv6 to IPv4:
+
+| IPv6 Header Fields | Values                                      |
+|:------------------ | ------------------------------------------- |
+| Version            | 4                                           |
+| IHL                | 5(no options)                               |
+| TOS                | Traffic class                               |
+| Total Length       | Payload length + length of the IPv4 header  |
+| Identification     | 0                                           |
+| Flasgs             | More Fragments Flag=0 Don’t Fragment Flag=1 |
+| Fragment Offset    | 0                                           |
+| TTL                | Hop Limit                                   |
+| Protocol           | Next Header field                           |
+| Src address        | NAT-PT                                      |
+| Dst address        | NAT-PT                                      |
+| Checksum           | Computed                                    |
+| Options            | Not translated                              |
+
+![](https://i.imgur.com/k0hBayw.png)
+
+NAT-PT router config:
+```
+interface Ethernet0/0
+ ipv6 address 3ffe:100:200:1::2/64
+ ipv6 enable
+ ipv6 nat
+!
+interface Ethernet1/0
+ ip address 192.168.1.2 255.255.255.0
+ ipv6 nat
+!Entry for static mapping of v4 source->v6-
+ipv6 nat v4v6 source 192.168.1.1 3ffe:b00:1::1
+!Entry for mapping of v6 source->dynamic v4
+ipv6 nat v6v4 source list pt1 pool v4pool
+ipv6 nat v6v4 pool v4pool 10.50.10.1 10.50.10.10 prefix-length 24
+ipv6 nat translation udp-timeout 600
+ipv6 nat prefix 3ffe:b00:1::/96
+!
+ipv6 access-list pt1
+ permit ipv6 3ffe:100:200:1::/64 any
+```
+
+NAT-PT 有許多如同NAT一樣的問題，因此若有其他解決方案則不會使用NAT-PT
+
