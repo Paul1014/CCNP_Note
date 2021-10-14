@@ -1,6 +1,4 @@
----
-tags: CCNP EXAM
----
+
 # IPv6 
 
 ## IPv6 Refresher
