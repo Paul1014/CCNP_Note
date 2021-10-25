@@ -372,21 +372,50 @@ ipv6 source-guard
 
 ### uRPF (300-410)
 
+#### Introduction
 Unicast Reverse Path Forwarding: 用於讓路由器檢測 spoofed addres(欺騙位址)
-uRPF 需要啟動CEF才可以正常運作
-分為以下三模式:
+啟用在Router上，驗證封包來源IP位址，若未指不符則丟棄該封包
+uRPF主要有三種模式:strict, loose and VRF
+主要討論strict和loose
 
-* Strict: 路由器會先查看 Src. IP並確認該封包的ingress interface. 在道路由表查看Src. IP是否有route(除了default route)，或是interface 不符合，則被丟棄。此模式容易造成BGP 協定有問題
-* Loose: 僅看路由表上的route 跟 Src. IP做比對
-* VRF: 與Loose模式相同
+* Strict mode:
+Router 會使用同一個Interface去接收以及回覆封包，EX:
+![](https://i.imgur.com/8YNHXRY.jpg)
+該模式可能會使正常的流量被丟棄，尤其是在非同步的routing path的狀況下。
+
+Strict模式在企業網路中，可以被使用在access layer或是branch office。
+
+* Loose mode:
+在Loose模式下，source address必須出現在routing table上(allow-default)。
+也可以使用acess list允許範圍。
+另外如果source address在路由表上egress是Null interface，則會被丟棄。
+
+Loose模式在企業網路中，可以使用在與default route連接的uplink。
 
 
-設定在interface 上:
+#### Example
+
+使用uRPF功能，必須先啟用CEF
+
+Example:
 ```
-ip verify unicast source reachable-via [any | rx] 
+interface gi 0/0
+ip verify unicast source reachable-via {rx | any} [allow-default]
+[allow-self-ping] [list]
 ```
-
 rx: strict
 any: loose
 
-未必免strict mode問題，可以使用 allow-default，允許使用 default route
+驗證:
+
+```
+Router#show cef interface gigabitEthernet 0/1
+GigabitEthernet0/1 is up (if_number 3)
+  Corresponding hwidb fast_if_number 3
+  Corresponding hwidb firstsw->if_number 3
+  Internet address is 10.14.1.1/24
+  ICMP redirects are always sent
+  Per packet load-sharing is disabled
+  IP unicast RPF check is enabled
+  (略 ...)
+```
